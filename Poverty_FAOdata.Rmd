@@ -1,0 +1,110 @@
+---
+title: "Poverty Index and InFish"
+author: "AMDeines"
+date: "9/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(readxl)
+```
+
+# Data 
+
+## FAO Capture and Aquculture 
+Used online queires at FAO for [Capture Production](http://www.fao.org/fishery/statistics/global-capture-production/query/en) and [Aquaculture Production](http://www.fao.org/fishery/statistics/global-aquaculture-production/query/en) to download country-level data for 2008-2018 Inland fisheries as .csv files.
+
+```{r Data_import}
+FAO_capture<-read.csv("Data/CAPTURE_figis_20200903.csv")
+FAO_aqua<-read.csv("Data/AQUA_figis_20200903.csv")
+
+MPI_raw<-read_excel("Data/mpi_table_2019_final_0.xlsx",
+                sheet="Table 1",
+                range="A5:E106")
+                
+```
+
+```{r tidy_capture}
+FAO_capture_long<-FAO_capture%>%
+  select(!starts_with("S_"),-Ocean.Area)%>% # ignores data flag for estimated data
+  pivot_longer(X2008:X2018)%>%  # makes it long
+  mutate(Year=as.numeric(gsub("X","",name)))%>%
+  select(-name)#drop name field
+```
+
+```{r tidy_aquaculture}
+FAO_aqua_long<-FAO_aqua%>%
+  select(!starts_with("S_"),-Ocean.Area)%>% # ignores data flag for estimated data
+  pivot_longer(X2008:X2018)%>%  # makes it long
+  mutate(Year=as.numeric(gsub("X","",name)))%>%
+  select(-name)#drop name field
+```
+
+## MPI data 
+```{r tidy_MPI}
+MPI<-MPI_raw%>%select("Country",MPI="Value")
+
+```
+
+## Compile Data 
+```{r final_data}
+FAO<-full_join(FAO_capture_long,FAO_aqua_long,
+               by=c("Land.Area","Year"),
+               suffix = c("_Capture", "_Aquaculture"))%>% #join datasets
+      rowwise()%>%
+      mutate(value_Total=sum(value_Capture,value_Aquaculture,na.rm=TRUE),
+             frac_Capture=value_Capture/value_Total)
+
+FAO_MPI<-full_join(FAO,MPI,by=c("Land.Area"="Country"))
+
+#Check where names don't align####
+
+#MPI countries NOT in FAO
+MPI_notin_FAO<-unique(FAO_MPI$Land.Area[is.na(FAO_MPI$value_Total)])
+
+#FAO countries NOT in MPI
+FAO_notin_MPI<-unique(FAO_MPI$Land.Area[is.na(FAO_MPI$MPI)])
+
+
+#Manually create a lookup for MPI not in FAO
+MPIlookup<-data.frame(Country=MPI_notin_FAO,
+                      Land.Area=c("Bolivia (Plurinat.State)",
+                                 NA,
+                                 "Congo, Dem. Rep. of the",
+                                 "CÃ´te d'Ivoire",
+                                 "Eswatini",
+                                 "Lao People's Dem. Rep.",
+                                 NA,
+                                 "Moldova, Republic of",
+                                 "Palestine",
+                                 NA,
+                                 "Tanzania, United Rep. of",
+                                 NA))
+# Redo FAO-MPI join using the lookup table
+FAO_MPI<-MPI%>%
+  left_join(MPIlookup)%>%
+  mutate(Land.Area = ifelse(is.na(Land.Area), Country, Land.Area))%>%
+  full_join(FAO,by="Land.Area")%>%
+  select(-Country)
+
+#MPI countries NOT in FAO
+unique(FAO_MPI$Land.Area[is.na(FAO_MPI$value_Total)])#great
+```
+
+
+# Analysis 
+```{r plot}
+ggplot(data=FAO_MPI%>%filter(Year%in%2018),
+       aes(x=value_Total,y=MPI,color=frac_Capture))+
+  geom_point()+
+  scale_y_log10()+
+  scale_x_log10()+
+  xlab("Total inland production (capture+aquaculture t)")+
+  scale_color_continuous("Fraction Capture")
+
+
+```
