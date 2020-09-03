@@ -98,13 +98,14 @@ unique(FAO_MPI$Land.Area[is.na(FAO_MPI$value_Total)])#great
 
 # Analysis 
 ```{r plot}
-ggplot(data=FAO_MPI%>%filter(Year%in%2018),
+AMD01<-ggplot(data=FAO_MPI%>%filter(Year%in%2018),
        aes(x=value_Total,y=MPI,color=frac_Capture))+
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
   xlab("Total inland production (capture+aquaculture t)")+
-  scale_color_continuous("Fraction Capture")
+  scale_color_continuous("Fraction Capture")+
+  ggtitle("DRAFT- Country level MPI by total inland fisheries production")
 
 
 ```
