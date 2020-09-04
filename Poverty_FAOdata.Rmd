@@ -120,21 +120,64 @@ FAO_MPI<-MPI%>%
 # Analysis 
 ```{r plot}
 #plot MPI~total production
-AMD01<-ggplot(data=FAO_MPI%>%filter(Year%in%2018),
-       aes(x=value_Total_t,y=MPI,color=frac_Capture))+
+FAO_10yr_prod<-FAO_MPI%>%filter(Year%in%2009:2018)%>% #for ten-year average
+ group_by(Country)%>%
+ summarise(Prod_10yrAvg=mean(value_Total_t,na.rm = TRUE),
+           frac_Capture_Avg=mean(frac_Capture,na.rm = TRUE),
+           MPI=unique(MPI))
+
+AMD01<-ggplot(data=FAO_10yr_prod,
+       aes(x=Prod_10yrAvg,y=MPI,color=frac_Capture_Avg))+
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
-  xlab("Total inland production (capture+aquaculture t)")+
-  scale_color_continuous("Fraction Capture")+
+  xlab("Total inland production 10 year average (capture+aquaculture t)")+
+  scale_color_continuous("Average Fraction Capture")+
   ggtitle("DRAFT- Country level MPI by total inland fisheries production")
+print(AMD01)
 
 #plot MPI~consumption
-AMD02<-ggplot(data=FAO_MPI%>%filter(Year%in%2013),
-       aes(x=value_Consumption,y=MPI))+
+FAO_10yr_cons<-FAO_MPI%>%
+  group_by(Country)%>%
+  summarise(Cons_10yrAvg=mean(value_Consumption,na.rm = TRUE),
+            MPI=unique(MPI))
+
+AMD02<-ggplot(data=FAO_10yr_cons,
+       aes(x=Cons_10yrAvg,y=MPI))+
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
-  xlab("Inland Fisheries Consumption")+
+  xlab("Inland fisheries consumption 10 year average")+
   ggtitle("DRAFT- Country level MPI by total inland fisheries consumption")
+print(AMD02)
+
+AMD03<-ggplot(data=full_join(FAO_10yr_prod,FAO_10yr_cons,by="Country"), 
+              aes(x=Prod_10yrAvg,y=Cons_10yrAvg,color=frac_Capture_Avg))+
+  geom_point()+
+  ylab("10 year average consumption 2004-2013")+
+  ylab("10 year average total production 2009-2018")+
+  scale_color_continuous("Average Fraction Capture")+
+  scale_x_log10()+
+  scale_y_log10()
+print(AMD03)
+##Production and consumption are rather linear, so nothing interesting there. 
+
+```
+
+An interesting aspect of AMD01, is that there appears to be a large seperation in MPI based on teh fraction of the production that is capture, where the higher fraction of capture appears to be correlated with higher MPI. 
+
+```{r MPI_FracCap}
+
+AMD04<-ggplot(data=FAO_10yr_prod,
+       aes(color=Prod_10yrAvg,y=MPI,x=frac_Capture_Avg))+
+  geom_point()+
+  scale_y_log10()+
+  scale_x_log10()+
+  xlab("Fraction of total production that is Capture fishery")+
+  scale_color_continuous("10 year average total production")+
+  ggtitle("DRAFT- Country level MPI by total inland fisheries production")
+print(AMD04)
+
+
+
 ```
