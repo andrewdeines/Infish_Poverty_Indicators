@@ -18,88 +18,110 @@ library(readxl)
 ## FAO Capture and Aquculture 
 Used online queires at FAO for [Capture Production](http://www.fao.org/fishery/statistics/global-capture-production/query/en) and [Aquaculture Production](http://www.fao.org/fishery/statistics/global-aquaculture-production/query/en) to download country-level data for 2008-2018 Inland fisheries as .csv files.
 
-```{r Data_import}
+```{r FAO_import}
 FAO_capture<-read.csv("Data/CAPTURE_figis_20200903.csv")
 FAO_aqua<-read.csv("Data/AQUA_figis_20200903.csv")
 
-MPI_raw<-read_excel("Data/mpi_table_2019_final_0.xlsx",
-                sheet="Table 1",
-                range="A5:E106")
-                
+FAO_consumption<-read.csv("Data/FoodBalance_FWprodcons_2003-2013_MPI_del - FoodBalance_FWprodcons_2003-2013_MPI_del.csv")
+
 ```
 
-```{r tidy_capture}
+```{r FAO_tidy}
 FAO_capture_long<-FAO_capture%>%
+  filter(Unit%in%"t")%>% #only use tonnes
   select(!starts_with("S_"),-Ocean.Area)%>% # ignores data flag for estimated data
   pivot_longer(X2008:X2018)%>%  # makes it long
   mutate(Year=as.numeric(gsub("X","",name)))%>%
   select(-name)#drop name field
-```
 
-```{r tidy_aquaculture}
+
 FAO_aqua_long<-FAO_aqua%>%
   select(!starts_with("S_"),-Ocean.Area)%>% # ignores data flag for estimated data
   pivot_longer(X2008:X2018)%>%  # makes it long
   mutate(Year=as.numeric(gsub("X","",name)))%>%
   select(-name)#drop name field
+
+FAO_consump_long<-FAO_consumption%>%
+  select(!starts_with("prod_"),- Group.of.species..Name.,- Unit..Name.,-MPI.country.name)%>%
+  pivot_longer(cons_2004:cons_2013,names_to="Year",values_to="value_Consumption")%>%
+  mutate(Year=as.numeric(gsub("cons_","",Year)))
 ```
+
 
 ## MPI data 
 ```{r tidy_MPI}
+MPI_raw<-read_excel("Data/mpi_table_2019_final_0.xlsx",
+                sheet="Table 1",
+                range="A5:E106")
+
 MPI<-MPI_raw%>%select("Country",MPI="Value")
 
 ```
 
+
+
+
 ## Compile Data 
 ```{r final_data}
+#Compare Country names across FAO capture, aquaculture, & Consumption data
+
+#Capture & Aquaculture
+table(FAO_capture_long$Land.Area%in%FAO_aqua_long$Land.Area)
+table(FAO_aqua_long$Land.Area%in%FAO_capture_long$Land.Area)
+## All Aquaculture Countries are in Capture data
+
+#Capture & Consumption 
+Capture_notin_Consumption<-unique(FAO_capture_long$Land.Area[
+  !FAO_capture_long$Land.Area%in%FAO_consump_long$FAO.country.name])
+Consumption_notin_Capture<-unique(FAO_consump_long$FAO.country.name[
+  !FAO_consump_long$FAO.country.name%in%FAO_capture_long$Land.Area])
+
+#rename Palistine in consumption data to match FAO data.
+FAO_consump_long$FAO.country.name[FAO_consump_long$FAO.country.name%in%"Palestine, Occupied Tr."]<-
+  "Palestine"
+
+#Join all the FAO data
 FAO<-full_join(FAO_capture_long,FAO_aqua_long,
                by=c("Land.Area","Year"),
                suffix = c("_Capture", "_Aquaculture"))%>% #join datasets
       rowwise()%>%
       mutate(value_Total=sum(value_Capture,value_Aquaculture,na.rm=TRUE),
-             frac_Capture=value_Capture/value_Total)
+             frac_Capture=value_Capture/value_Total)%>%
+    full_join(FAO_consump_long,by=c("Land.Area"="FAO.country.name","Year"))
 
-FAO_MPI<-full_join(FAO,MPI,by=c("Land.Area"="Country"))
-
-#Check where names don't align####
-
+#Compare FAO Countries to MPI Countries
 #MPI countries NOT in FAO
-MPI_notin_FAO<-unique(FAO_MPI$Land.Area[is.na(FAO_MPI$value_Total)])
+MPI_notin_FAO<-unique(MPI$Country[!MPI$Country%in%FAO$Land.Area])
 
 #FAO countries NOT in MPI
-FAO_notin_MPI<-unique(FAO_MPI$Land.Area[is.na(FAO_MPI$MPI)])
-
+FAO_notin_MPI<-unique(FAO$Land.Area[!FAO$Land.Area%in%MPI$Country])
 
 #Manually create a lookup for MPI not in FAO
 MPIlookup<-data.frame(Country=MPI_notin_FAO,
                       Land.Area=c("Bolivia (Plurinat.State)",
-                                 NA,
                                  "Congo, Dem. Rep. of the",
                                  "CÃ´te d'Ivoire",
                                  "Eswatini",
                                  "Lao People's Dem. Rep.",
-                                 NA,
                                  "Moldova, Republic of",
                                  "Palestine",
-                                 NA,
-                                 "Tanzania, United Rep. of",
-                                 NA))
+                                 "Tanzania, United Rep. of"))
 # Redo FAO-MPI join using the lookup table
 FAO_MPI<-MPI%>%
   left_join(MPIlookup)%>%
   mutate(Land.Area = ifelse(is.na(Land.Area), Country, Land.Area))%>%
   full_join(FAO,by="Land.Area")%>%
-  select(-Country)
-
-#MPI countries NOT in FAO
-unique(FAO_MPI$Land.Area[is.na(FAO_MPI$value_Total)])#great
+  select(Country=Land.Area,Year,MPI,value_Capture_t=value_Capture,
+         value_Aquaculture_t=value_Aquaculture,value_Total_t=value_Total,
+         frac_Capture, value_Consumption)
 ```
 
 
 # Analysis 
 ```{r plot}
+#plot MPI~total production
 AMD01<-ggplot(data=FAO_MPI%>%filter(Year%in%2018),
-       aes(x=value_Total,y=MPI,color=frac_Capture))+
+       aes(x=value_Total_t,y=MPI,color=frac_Capture))+
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
@@ -107,5 +129,12 @@ AMD01<-ggplot(data=FAO_MPI%>%filter(Year%in%2018),
   scale_color_continuous("Fraction Capture")+
   ggtitle("DRAFT- Country level MPI by total inland fisheries production")
 
-
+#plot MPI~consumption
+AMD02<-ggplot(data=FAO_MPI%>%filter(Year%in%2013),
+       aes(x=value_Consumption,y=MPI))+
+  geom_point()+
+  scale_y_log10()+
+  scale_x_log10()+
+  xlab("Inland Fisheries Consumption")+
+  ggtitle("DRAFT- Country level MPI by total inland fisheries consumption")
 ```
