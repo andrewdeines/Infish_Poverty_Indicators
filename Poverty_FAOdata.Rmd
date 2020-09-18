@@ -132,8 +132,13 @@ AMD01<-ggplot(data=FAO_10yr_prod,
   scale_y_log10()+
   scale_x_log10()+
   xlab("Total inland production 10 year average (capture+aquaculture t)")+
-  scale_color_continuous("Average Fraction Capture")+
-  ggtitle("DRAFT- Country level MPI by total inland fisheries production")
+  scale_color_continuous("Avg Fraction Capture")+
+  ggtitle("DRAFT- Country level MPI by total inland fisheries production")+
+  ggrepel::geom_text_repel(data=FAO_10yr_prod[which(FAO_10yr_prod$frac_Capture_Avg>.95),],
+            aes(label=Country),size=2)+
+  theme(legend.position="bottom")
+ggsave(plot=AMD01,filename="Output/Figures/AMD01_MPI by total inland fisheries.png",
+       height=5,width=6,units = "in")
 print(AMD01)
 
 #plot MPI~consumption
@@ -164,7 +169,7 @@ print(AMD03)
 
 ```
 
-An interesting aspect of AMD01, is that there appears to be a large seperation in MPI based on teh fraction of the production that is capture, where the higher fraction of capture appears to be correlated with higher MPI. 
+An interesting aspect of AMD01, is that there appears to be a large separation in MPI based on the fraction of the production that is capture, where the higher fraction of capture appears to be correlated with higher MPI. 
 
 ```{r MPI_FracCap}
 
@@ -177,6 +182,30 @@ AMD04<-ggplot(data=FAO_10yr_prod,
   scale_color_continuous("10 year average total production")+
   ggtitle("DRAFT- Country level MPI by total inland fisheries production")
 print(AMD04)
+
+
+#capture or Aquaculture by MPI
+FAO_10yr<-FAO_MPI%>%
+                filter(Year%in%2009:2018)%>%
+                pivot_longer(cols=c(value_Capture_t, value_Aquaculture_t))%>%
+                group_by(Country,name)%>%
+                summarise(x_10yr=median(value,na.rm = TRUE),
+                          MPI=unique(MPI))
+
+AMD05<-ggplot(data=FAO_10yr_mod,
+              aes(x=MPI,y=x_10yr,color=name))+
+  geom_point()+
+  scale_y_log10()+
+  scale_x_log10()+
+  geom_smooth(method="lm")
+
+FAO_10yr_lm_Capture<-lm(data=FAO_10yr,log(x_10yr+1)~log(MPI),subset=FAO_10yr$name%in%"value_Capture_t")
+summary(FAO_10yr_lm_Capture)
+plot(FAO_10yr_lm_Capture)
+
+FAO_10yr_lm_Aquaculture<-lm(data=FAO_10yr,log(x_10yr+1)~log(MPI),subset=!FAO_10yr$name%in%"value_Capture_t")
+summary(FAO_10yr_lm_Aquaculture)
+plot(FAO_10yr_lm_Aquaculture)
 
 
 
