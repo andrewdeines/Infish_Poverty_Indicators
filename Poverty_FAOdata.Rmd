@@ -69,8 +69,13 @@ MPI<-MPI_raw%>%select("Country",MPI="Value",MPI_year=`2007-2018`)%>%
 
 ```
 
+## Population
+http://www.fao.org/faostat/en/#data/OA 
+```{r population_data}
 
 
+
+```
 
 ## Compile Data 
 ```{r compile_FAOandMPI}
@@ -219,6 +224,8 @@ AMD05<-ggplot(data=FAO_MPI_long,
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
+  xlab("MPI")+
+  ylab("Production in recent MPI survey year")+
   geom_smooth(method="lm")+
   ggtitle("DRAFT- Country harvest by MPI and harvest mode")
 print(AMD05)
