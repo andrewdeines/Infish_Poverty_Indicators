@@ -54,7 +54,18 @@ MPI_raw<-read_excel("Data/mpi_table_2019_final_0.xlsx",
                 sheet="Table 1",
                 range="A5:E106")
 
-MPI<-MPI_raw%>%select("Country",MPI="Value")
+MPI<-MPI_raw%>%select("Country",MPI="Value",MPI_year=`2007-2018`)%>%
+  separate(MPI_year,sep=" ",into=c("mpi_years","mpi_flag"))%>% #separates years from flag
+  separate(mpi_years,into=c("mpi_year_min","mpi_year_max"),fill="left",convert = TRUE)
+    ## separates two years if given, with single years going into max allowing
+    ## assumption to join to fish data by latest year of survey, consistent with
+    ## the assumption that drivers of poverty metrics also are drivers of
+    ## fishing levels, where the later of two poverty metric years
+    ## ("mpi_year_max") should be used because one would not expect a later
+    ## poverty metric (say 2017) to have influenced an earlier fishing levels
+    ## (say 2014), but rather fishing level in 2017 may have a signal of poverty
+    ## metrics from previous years. fill="right" and "mpi_year_min" would be
+    ## appropriate if the hypothesis was that fishing influenced poverty levels.
 
 ```
 
@@ -62,7 +73,7 @@ MPI<-MPI_raw%>%select("Country",MPI="Value")
 
 
 ## Compile Data 
-```{r final_data}
+```{r compile_FAOandMPI}
 #Compare Country names across FAO capture, aquaculture, & Consumption data
 
 #Capture & Aquaculture
@@ -80,7 +91,7 @@ Consumption_notin_Capture<-unique(FAO_consump_long$FAO.country.name[
 FAO_consump_long$FAO.country.name[FAO_consump_long$FAO.country.name%in%"Palestine, Occupied Tr."]<-
   "Palestine"
 
-#Join all the FAO data
+#Join all the FAO fish data
 FAO<-full_join(FAO_capture_long,FAO_aqua_long,
                by=c("Land.Area","Year"),
                suffix = c("_Capture", "_Aquaculture"))%>% #join datasets
@@ -106,12 +117,12 @@ MPIlookup<-data.frame(Country=MPI_notin_FAO,
                                  "Moldova, Republic of",
                                  "Palestine",
                                  "Tanzania, United Rep. of"))
-# Redo FAO-MPI join using the lookup table
+# FAO-MPI join using the lookup table
 FAO_MPI<-MPI%>%
   left_join(MPIlookup)%>%
   mutate(Land.Area = ifelse(is.na(Land.Area), Country, Land.Area))%>%
   full_join(FAO,by="Land.Area")%>%
-  select(Country=Land.Area,Year,MPI,value_Capture_t=value_Capture,
+  select(Country=Land.Area,Fish_year=Year,MPI,MPI_year=mpi_year_max,value_Capture_t=value_Capture,
          value_Aquaculture_t=value_Aquaculture,value_Total_t=value_Total,
          frac_Capture, value_Consumption)
 ```
@@ -120,21 +131,23 @@ FAO_MPI<-MPI%>%
 # Analysis 
 ```{r plot}
 #plot MPI~total production
-FAO_10yr_prod<-FAO_MPI%>%filter(Year%in%2009:2018)%>% #for ten-year average
+FAO_10yr_prod<-FAO_MPI%>%filter(Fish_year%in%2009:2018)%>% #for ten-year average
  group_by(Country)%>%
  summarise(Prod_10yrAvg=mean(value_Total_t,na.rm = TRUE),
            frac_Capture_Avg=mean(frac_Capture,na.rm = TRUE),
            MPI=unique(MPI))
 
-AMD01<-ggplot(data=FAO_10yr_prod,
-       aes(x=Prod_10yrAvg,y=MPI,color=frac_Capture_Avg))+
+AMD01<-ggplot(data=FAO_MPI%>%filter(Fish_year==MPI_year),
+       aes(x=value_Total_t,y=MPI,color=frac_Capture))+
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
-  xlab("Total inland production 10 year average (capture+aquaculture t)")+
-  scale_color_continuous("Avg Fraction Capture")+
+  xlab("Total inland production in recent MPI survey year(capture+aquaculture t)")+
+  scale_color_continuous("Fraction Capture")+
   ggtitle("DRAFT- Country level MPI by total inland fisheries production")+
-  ggrepel::geom_text_repel(data=FAO_10yr_prod[which(FAO_10yr_prod$frac_Capture_Avg>.95),],
+  ggrepel::geom_text_repel(data=FAO_MPI%>%
+                             filter(Fish_year==MPI_year,
+                                    frac_Capture>.95),
             aes(label=Country),size=2)+
   theme(legend.position="bottom")
 ggsave(plot=AMD01,filename="Output/Figures/AMD01_MPI by total inland fisheries.png",
@@ -147,25 +160,36 @@ FAO_10yr_cons<-FAO_MPI%>%
   summarise(Cons_10yrAvg=mean(value_Consumption,na.rm = TRUE),
             MPI=unique(MPI))
 
-AMD02<-ggplot(data=FAO_10yr_cons,
-       aes(x=Cons_10yrAvg,y=MPI))+
+AMD02<-ggplot(data=FAO_MPI%>%filter(Fish_year==MPI_year),
+       aes(x=value_Consumption,y=MPI))+
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
-  xlab("Inland fisheries consumption 10 year average")+
+  xlab("Inland fisheries in recent MPI survey year")+
   ggtitle("DRAFT- Country level MPI by total inland fisheries consumption")
 print(AMD02)
 
-AMD03<-ggplot(data=full_join(FAO_10yr_prod,FAO_10yr_cons,by="Country"), 
-              aes(x=Prod_10yrAvg,y=Cons_10yrAvg,color=frac_Capture_Avg))+
+AMD03<-ggplot(data=FAO_MPI%>%filter(Fish_year==MPI_year), 
+              aes(x=value_Total_t,y=value_Consumption,
+                  color=frac_Capture,
+                  size=MPI))+
   geom_point()+
-  ylab("10 year average consumption 2004-2013")+
-  ylab("10 year average total production 2009-2018")+
-  scale_color_continuous("Average Fraction Capture")+
+  ylab("Consumption in recent MPI survey year")+
+  xlab("Total production in recent MPI survey year")+
+  scale_color_continuous("Fraction Capture")+
+  scale_size_continuous("MPI")+
   scale_x_log10()+
-  scale_y_log10()
+  scale_y_log10()+
+  ggtitle("DRAFT- Country consumption by total inland fisheries production")+
+  ggrepel::geom_text_repel(data=FAO_MPI%>%
+                             filter(Fish_year==MPI_year,
+                                    value_Total_t<1e3),
+            aes(label=Country),size=3)
 print(AMD03)
-##Production and consumption are rather linear, so nothing interesting there. 
+  ##Production and consumption are rather linear, except at the lowest levels of
+  ##production where consumption is abnormally high, though few data points.
+ggsave(plot=AMD03,filename="Output/Figures/AMD03_inland fisheries production and consumption.png",
+       height=5,width=7,units = "in")
 
 ```
 
@@ -185,27 +209,32 @@ print(AMD04)
 
 
 #capture or Aquaculture by MPI
-FAO_10yr<-FAO_MPI%>%
-                filter(Year%in%2009:2018)%>%
-                pivot_longer(cols=c(value_Capture_t, value_Aquaculture_t))%>%
-                group_by(Country,name)%>%
-                summarise(x_10yr=median(value,na.rm = TRUE),
-                          MPI=unique(MPI))
+FAO_MPI_long<-FAO_MPI%>%
+                filter(Fish_year==MPI_year)%>%
+                pivot_longer(cols=c(value_Capture_t, value_Aquaculture_t),
+                             names_to="Harvest mode",values_to="Harvest tons")
 
-AMD05<-ggplot(data=FAO_10yr_mod,
-              aes(x=MPI,y=x_10yr,color=name))+
+AMD05<-ggplot(data=FAO_MPI_long,
+              aes(x=MPI,y=`Harvest tons`,color=`Harvest mode`))+
   geom_point()+
   scale_y_log10()+
   scale_x_log10()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm")+
+  ggtitle("DRAFT- Country harvest by MPI and harvest mode")
+print(AMD05)
+ggsave(plot=AMD05,filename="Output/Figures/AMD05_Country harvest by MPI and harvest mode.png",
+       height=5,width=6,units = "in")
 
-FAO_10yr_lm_Capture<-lm(data=FAO_10yr,log(x_10yr+1)~log(MPI),subset=FAO_10yr$name%in%"value_Capture_t")
-summary(FAO_10yr_lm_Capture)
-plot(FAO_10yr_lm_Capture)
 
-FAO_10yr_lm_Aquaculture<-lm(data=FAO_10yr,log(x_10yr+1)~log(MPI),subset=!FAO_10yr$name%in%"value_Capture_t")
-summary(FAO_10yr_lm_Aquaculture)
-plot(FAO_10yr_lm_Aquaculture)
+FAO_lm_Capture<-lm(data=FAO_MPI_long,log(`Harvest tons`+1)~log(MPI),
+                   subset=FAO_MPI_long$`Harvest mode`%in%"value_Capture_t")
+summary(FAO_lm_Capture)
+plot(FAO_lm_Capture)
+
+FAO_lm_Aquaculture<-lm(data=FAO_MPI_long,log(`Harvest tons`+1)~log(MPI),
+                   subset=!FAO_MPI_long$`Harvest mode`%in%"value_Capture_t")
+summary(FAO_lm_Aquaculture)
+plot(FAO_lm_Aquaculture)
 
 
 
