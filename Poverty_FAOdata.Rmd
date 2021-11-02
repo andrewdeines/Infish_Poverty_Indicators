@@ -11,15 +11,26 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 library(readxl)
+library(boxr)
 ```
 
 # Data 
+Project data is stored & Shared via [TNC's box](https://tnc.box.com/s/6vs4fbq2paeysla5o5zbyrbi5dvjtfra). 
+Connecting to Box [using boxr](https://r-box.github.io/boxr/articles/boxr-app-interactive.html)
 
 ## FAO Capture and Aquculture 
-Used online queires at FAO for [Capture Production](http://www.fao.org/fishery/statistics/global-capture-production/query/en) and [Aquaculture Production](http://www.fao.org/fishery/statistics/global-aquaculture-production/query/en) to download country-level data for 2008-2018 Inland fisheries as .csv files.
+Used online queries at FAO for [Capture Production](http://www.fao.org/fishery/statistics/global-capture-production/query/en) and [Aquaculture Production](http://www.fao.org/fishery/statistics/global-aquaculture-production/query/en) to download country-level data for 2008-2018 Inland fisheries as .csv files.
 
 ```{r FAO_import}
-FAO_capture<-read.csv("Data/CAPTURE_figis_20200903.csv")
+# box_auth(client_id = "hdinb450zm70jf7nh37tvkhnqmdu1x46", client_secret = "****")
+# Get secret from: https://app.box.com/developers/console/app/1643820/configuration
+# Andy's Box app : adeinesbox
+boxr::box_fresh_auth()
+box_ls("149328113696")
+FAO_capture<-box_read_csv(file_id="880355334542")
+
+  
+  read.csv("https://tnc.box.com/s/62wp8s4y6q27efbmi834hzgj916lmvlg")
 FAO_aqua<-read.csv("Data/AQUA_figis_20200903.csv")
 
 FAO_consumption<-read.csv("Data/FoodBalance_FWprodcons_2003-2013_MPI_del - FoodBalance_FWprodcons_2003-2013_MPI_del.csv")
