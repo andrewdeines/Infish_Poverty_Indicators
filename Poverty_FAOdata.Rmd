@@ -8,10 +8,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(tidyverse)
-library(lubridate)
+source("InFish_Auxillary.R")
 library(readxl)
-library(boxr)
+library(countrycode)
 ```
 
 # Data 
@@ -21,23 +20,19 @@ Connecting to Box [using boxr](https://r-box.github.io/boxr/articles/boxr-app-in
 ## FAO Capture and Aquculture 
 Used online queries at FAO for [Capture Production](http://www.fao.org/fishery/statistics/global-capture-production/query/en) and [Aquaculture Production](http://www.fao.org/fishery/statistics/global-aquaculture-production/query/en) to download country-level data for 2008-2018 Inland fisheries as .csv files.
 
-```{r FAO_import}
-# box_auth(client_id = "hdinb450zm70jf7nh37tvkhnqmdu1x46", client_secret = "****")
-# Get secret from: https://app.box.com/developers/console/app/1643820/configuration
-# Andy's Box app : adeinesbox
-boxr::box_fresh_auth()
-box_ls("149328113696")
-FAO_capture<-box_read_csv(file_id="880355334542")
+```{r FAO_Fish_data}
+# FAO Capture and Aquaculture Production
+# Updated 20211102
+FAO_Capture_Culture<-read.csv("Data/capture and aquaculture production_FishStatJ_1950-2018.csv")
 
+FAO_capture<-FAO_Capture_Culture%>%
+  filter()
   
-  read.csv("https://tnc.box.com/s/62wp8s4y6q27efbmi834hzgj916lmvlg")
-FAO_aqua<-read.csv("Data/AQUA_figis_20200903.csv")
-
-FAO_consumption<-read.csv("Data/FoodBalance_FWprodcons_2003-2013_MPI_del - FoodBalance_FWprodcons_2003-2013_MPI_del.csv")
+FAO_aqua<-FAO_Capture_Culture%>%
 
 ```
 
-```{r FAO_tidy}
+```{r FAO_Fish_tidy}
 FAO_capture_long<-FAO_capture%>%
   filter(Unit%in%"t")%>% #only use tonnes
   select(!starts_with("S_"),-Ocean.Area)%>% # ignores data flag for estimated data
@@ -60,13 +55,39 @@ FAO_consump_long<-FAO_consumption%>%
 
 
 ## MPI data 
-```{r tidy_MPI}
-MPI_raw<-read_excel("Data/mpi_table_2019_final_0_with_population.xlsx",
-                sheet="Table 1",
-                range="A5:F106")
+```{r MPI_data}
+MPI_header<-c(
+"ISO country numeric code",
+"ISO country code",
+"Country",
+"World region",
+"MPI data source_Survey",
+"MPI data source_Year",
+"Multidimensional poverty_Multidimensional Poverty Index",#(MPI = H*A)_Range 0 to 1
+"Multidimensional poverty_Headcount ratio",#: Population in multidimensional poverty (H)_% Population
+"Multidimensional poverty_Intensity of deprivation", # among the poor (A)_Average % of weighted deprivations
+"Multidimensional poverty_Vulnerable to poverty", #_% Population
+"Multidimensional poverty_In severe poverty",#_% Population
+"Multidimensional poverty_Inequality among the poor",# (variance)
+"Destitution_Headcount ratio",#: Population in multidimensional destitution (HD)_% Population",
+"Destitution_Proportion of MPI poor who are destitute",#
+"Total population_Year of the survey",#_Thousands",
+"Total population_Population 2018", #_Thousands",
+"Total population_Population 2019",#_Thousands",
+"Number of MPI poor people_Year of the survey",#_Thousands",
+"Number of MPI poor people_Population 2018",#_Thousands",
+"Number of MPI poor people_Population 2019",#_Thousands",
+"Indicators included in the MPI",#_Total number of indicators included  (out of ten)_",
+"Indicators included in the MPI_Indicator (s) missing"
+)
+
+MPI_raw<-read_excel("Data/Table-1-National-Results-MPI-2021.xlsx",
+                sheet="1.1 National MPI Results",
+                range="A10:V118",col_names = MPI_header)
+  #This skips the terrible header formatting, which is provided manually above
 
 MPI<-MPI_raw%>%select("Country",MPI="Value",MPI_year=`2007-2018`,Population)%>%
-  mutate(Population=Population*1000)%>%# data appears to be in thousands
+  mutate(Population=Population*1000)%>%# data in thousands
   separate(MPI_year,sep=" ",into=c("mpi_years","mpi_flag"))%>% #separates years from flag
   separate(mpi_years,into=c("mpi_year_min","mpi_year_max"),fill="left",convert = TRUE)
     ## separates two years if given, with single years going into max allowing
@@ -80,6 +101,23 @@ MPI<-MPI_raw%>%select("Country",MPI="Value",MPI_year=`2007-2018`,Population)%>%
     ## appropriate if the hypothesis was that fishing influenced poverty levels.
 
 ```
+
+## Nutrition data
+
+```{r Nutrition_data}
+# Consumption Data
+FAO_consumption<-read.csv("Data/consumption_FishStatJ_1961-2017.csv")
+
+# Protein Data
+FAO_protein_2013<-read.csv("Data/protien supply_FAOSTAT_1961-2013.csv")#load old data
+FAO_protein_2018<-read.csv("Data/protien supply_FAOSTAT_2014-2018.csv")#Load new data
+
+
+
+FAO_protein<-rbind(FAO_protein_2013[,!names(FAO_protein_2013)%in%"Year.Code"],#bind data
+                   FAO_protein_2018)
+```
+
 
 ## Compile Data 
 ```{r compile_FAOandMPI}
@@ -142,7 +180,80 @@ FAO_MPI<-MPI%>%
 ```
 
 
+
+
+
 # Analysis 
+
+
+## Nutrition Analysis
+### Animal Protein~MPI
+```{r AnimalProtein_by_MPI}
+# Need to Join the FAO_protein data and MPI_raw data by Country and year
+head(FAO_protein)
+head(MPI_raw)
+
+# Unify Country Names using countrycode package
+## Convert FAO to ISO as in the MPI data
+## Check for matches, deal with manual missing matches
+FAO_protein_1<-FAO_protein%>%
+  filter(Year>=min(unlist(str_split(MPI_raw$`MPI data source_Year`,"-"))))%>% 
+    ##filter by year to matches MPI data, and resolves some country dissolutions
+  mutate(iso_country3=countrycode(Area.Code..FAO., origin = "fao", destination = "iso3c",
+                      custom_match=  c(
+                        "41"="CHN", # China, mainland
+                        "151"="NA",  # Netherlands Antilles (former) dissolved by 2010 in FAO data
+                        "206"="NA") # Sudan (former). South Sudan MPI data is 2010, Sudan is 2014          
+  ))%>%
+  group_by(iso_country3,Year)%>%
+  summarise(Total_animal_protein=sum(Value,na.rm=TRUE),
+            Total_FWF_protein=sum(Value[Item%in%"Freshwater Fish"],na.rm=TRUE),
+            FWF_precent_Total=Total_FWF_protein/Total_animal_protein)
+  ### Note, The Netherlands Antilles dissolved into several states, none of
+  ### which appear to be in the MPI Data.  For Sudan (former), the 2010 FAO
+  ### doesn't seem to have South Sudan.
+
+# For each MPI country, grab the FAO data for the survey data year
+
+
+MPI_raw_1<-MPI_raw%>%
+  group_by( Country)%>%
+  mutate(mpi_year_max= min(as.numeric(unlist(str_split(`MPI data source_Year`,"-")))))
+  ## ("mpi_year_max") should be used because one would not expect a later
+  ## poverty metric (say 2017) to have influenced an earlier fishing levels (say
+  ## 2014), but rather fishing level in 2017 may have a signal of poverty
+  ## metrics from previous years. "mpi_year_min" would be appropriate if the
+  ## hypothesis was that fishing influenced poverty levels.
+
+
+# Join the databases by Country and Year
+Protein_MPI<-MPI_raw_1%>%
+  left_join(FAO_protein_1,
+            by=c("ISO country code"="iso_country3","mpi_year_max"="Year") )
+
+
+#plot
+Protein_MPI_plot_01<-
+  ggplot(data=Protein_MPI,
+         aes(x=`Multidimensional poverty_Multidimensional Poverty Index`,
+             y=`Total_animal_protein`))+
+    expAnnotate(scpt=paste("'Poverty_FAOdata.Rmd'",sep=" "),
+                figID="Protein_MPI_plot_01")+
+  geom_point(aes(size=FWF_precent_Total*100,
+                 color=`World region`))+
+  ylab("Total animal protein in diet (g/capita/day)")+
+  xlab("Multidimensional Poverty Index (MPI)")+
+  #scale_y_log10()+
+  #scale_x_log10()+
+  expTheme
+  
+
+
+```
+
+
+## uncategorized analyses
+
 ```{r plot}
 #plot MPI~total production
 FAO_10yr_prod<-FAO_MPI%>%filter(Fish_year%in%2009:2018)%>% #for ten-year average
