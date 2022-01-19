@@ -7,8 +7,159 @@ output: html_document
 
 
 # Analysis 
+```{r load_mainData}
+source("InFish_Auxillary.R")
+#most recent output from "Poverty_CompileData.Rmd"
+load(file="Output/MainData.RDATA")
+str(MPI_FAO_Income)
+```
 
 
+Based on [working MS](https://tnc.box.com/s/8zlpzrojm6vl9dai4mn26st7t35pq6h1) as of 2022_01_19.
+
+#Results
+## Relationship between MPI and animal protein consumption   
+
+ 
+###Contribution of freshwater fish in people’s diet in different levels of poverty (MPI)  
+
+Animal protein consumed (g/person/day; y axis) ~ Multidimensional poverty (0-1, x axis) and size of points is the percentage freshwater fish makes up of the total animal protein consumed 
+
+Data sources; Animal protein consumed is from ABC; MPI is from MPI Table 1 
+```{r }
+plot01 <-
+  ggplot(
+    data = MPI_FAO_Income %>%
+      mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
+               FAO_TotalProtein_g.capita.day),
+    aes(y = FAO_TotalProtein_g.capita.day, x = MPI, size = Protein_fwf)
+  ) +
+  expAnnotate(scpt="`Poverty_Analysis.Rmd`",
+                figID="plot01")+
+  geom_point()+
+  ylab("Animal protein consumed (g/person/day)")+
+  scale_size("Freshwater fish % of Protein")+
+  expTheme
+
+```
+### Contribution of freshwater of freshwater fish in people’s diet in each region at different levels of poverty (MPI) and the trend/relationship between them.  
+
+Animal protein consumed (g/person/day; y axis) ~ Multidimensional poverty (0-1, x axis) and size of points is the percentage freshwater fish makes up of the total and disaggregated by region (MPI table definition) and a trend line showing the regression between protein consumed and multidimensional poverty 
+
+Data sources; Animal protein consumed is from ABC; MPI is from MPI Table 1 
+```{r }
+plot02 <-
+  ggplot(
+    data = MPI_FAO_Income %>%
+      mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
+               FAO_TotalProtein_g.capita.day),
+    aes(y = FAO_TotalProtein_g.capita.day, x = MPI, size = Protein_fwf)
+  ) +
+  expAnnotate(scpt="`Poverty_Analysis.Rmd`",
+                figID="plot02")+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~`World region`,scale="free")+
+  ylab("Animal protein consumed (g/person/day)")+
+  scale_size("Freshwater fish % of Protein")+
+  expTheme
+```
+ 
+
+### Contribution of freshwater of freshwater fish in people’s diet in each region at different levels of NUTRITIONAL poverty (MPI) and the trend/relationship between them.  
+
+Animal protein consumed (g/person/day; y axis) ~ Multidimensional poverty Nutrition (0-1, x axis) and size of points is the percentage freshwater fish makes up of the total and disaggregated by region (MPI table definition) and a trend line showing the regression between protein consumed and multidimensional poverty. 
+
+Data sources; Animal protein consumed is from ABC; MPI is from MPI Table 1 
+```{r }
+# By POPULATION
+plot03 <-
+  ggplot(
+    data = MPI_FAO_Income %>%
+      mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
+               FAO_TotalProtein_g.capita.day),
+    aes(y = FAO_TotalProtein_g.capita.day, 
+        x = `MPI_Nutrition_%Population`, 
+        size = Protein_fwf)
+  ) +
+  expAnnotate(scpt="`Poverty_Analysis.Rmd`",
+                figID="plot03")+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~`World region`,scale="free")+
+  ylab("Animal protein consumed (g/person/day)")+
+  xlab("MPI Nutrition Deprivation (% Population, Uncensored Headcounts)")+
+  scale_size("Freshwater fish % of Protein")+
+  expTheme
+
+# By CONTRIBUTION
+plot04 <-
+  ggplot(
+    data = MPI_FAO_Income %>%
+      mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
+               FAO_TotalProtein_g.capita.day),
+    aes(y = FAO_TotalProtein_g.capita.day, 
+        x = `MPI_Nutrition_%Contribution`, 
+        size = Protein_fwf)
+  ) +
+  expAnnotate(scpt="`Poverty_Analysis.Rmd`",
+                figID="plot04")+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~`World region`,scale="free")+
+  ylab("Animal protein consumed (g/person/day)")+
+  xlab("MPI Nutrition Deprivation (% Contribution)")+
+  scale_size("Freshwater fish % of Protein")+
+  expTheme
+```
+ 
+
+### Contribution of freshwater of freshwater fish in people’s diet in each region at different levels of conventional poverty measure and the trend/relationship between them.  
+
+Animal protein consumed (g/person/day; y axis) ~ Percentage of population living on < US$1.90 a day (0-1, x axis) and size of points is the percentage freshwater fish makes up of the total and disaggregated by region (MPI table definition) and a trend line showing the regression between protein consumed and Poverty Gap 
+```{r }
+plot05 <-
+  ggplot(
+    data = MPI_FAO_Income %>%
+      mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
+               FAO_TotalProtein_g.capita.day),
+    aes(y = FAO_TotalProtein_g.capita.day, 
+        x = WB_PovertyGap_1.90, 
+        size = Protein_fwf)
+  ) +
+  expAnnotate(scpt="`Poverty_Analysis.Rmd`",
+                figID="plot05")+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~`World region`,scale="free")+
+  ylab("Animal protein consumed (g/person/day)")+
+  xlab("Poverty gap at $1.90 a day (%)")+
+  scale_size("Freshwater fish % of Protein")+
+  expTheme
+```
+ 
+
+### Contribution of freshwater of freshwater fish in people’s diet in Africa region at different levels of poverty (MPI) and the trend/relationship between them but controlled (in the loosest definition) for available of water to fish from. 
+
+Only for Africa countries – show the above relationship but transformed to account for freshwater area / borders in a country.  
+```{r }
+plot06 <-"TBD"
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Old Stuff
 ## Nutrition Analysis
 ### Animal Protein~MPI
 ```{r AnimalProtein_by_MPI}

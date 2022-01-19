@@ -30,10 +30,7 @@ expTheme<-theme_bw()+theme(panel.grid=element_blank(),
                            )#updated 20200117
 
 #The standard text text of a confidential watermark 
-pandCText = c("DRAFT-
-         Privileged & Confidential 
-         Attorney Work Product
-         Prepared at Request of Counsel")
+pandCText = c("DRAFT-Confidential")
 
 
 #A function that formats the P&CText to be added figure to a figure, including

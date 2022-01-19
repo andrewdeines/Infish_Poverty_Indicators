@@ -33,6 +33,9 @@ The data compiled here (assumed all by country (ISO) and year
 + FAO Nutrition - Animal protein consumed 
   [X] freshwater fish (fwf)
   [X] total
++ Income Poverty - WorldBank
+  [] $1.90 Poverty
+  
   
 
 The goal is to make a large dataset aligned by country and year.
@@ -239,6 +242,23 @@ qplot(data=MPI,y=`MPI_Nutrition_%Population`,x=`MPI_Nutrition_%Contribution`)
 
 ```
 
+
+## Income Poverty
+```{r Income}
+#https://tnc.box.com/s/jjxelezdqb2itr58dzjuamglrzpi1rbr
+income_pov<-read_excel("Data/API_11_DS2_en_excel_v2_3159551.xls",
+                       sheet="Data",skip=3)
+
+income_pov_1.9<-income_pov%>%
+  filter(`Indicator Code`%in%"SI.POV.GAPS")%>%
+  pivot_longer(cols=`1960`:`2020`,names_to = "Year",values_to = "WB_PovertyGap_1.90")%>%
+  mutate(Year=as.numeric(Year))%>%
+  filter(!is.na(WB_PovertyGap_1.90))%>%
+  select(-`Indicator Name`,-`Indicator Code` )
+
+```
+
+
 ## Compile Data 
 ```{r compile}
 # The MPI data set is the one we are trying to match to, so, join to that one.
@@ -267,7 +287,7 @@ MPI_FAO_Production [MPI_FAO_Production$ISO3.code %in%
 ##All Set.
 
 
-# FAO Nutrition DATA ###
+# FAO Nutrition DATA ####
 # There's no point in dealing with "old" data not in MPI ~ 2009
 ##Not all the
 
@@ -291,8 +311,21 @@ as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in%
                       MPI$ISO3.code[MPI$Latest_Year-MPI$Earliest_Year>1],])
 # All Set 
 
+### Income Poverty $1.90 per day
 
+MPI_FAO_income_Latest <- inner_join(
+  MPI_FAO,
+  income_pov_1.9 %>% mutate(PovertyGap_year = Year),
+  by = c("ISO3.code" = "Country Code", "Latest_Year" = "Year")
+)
 
+MPI_FAO_income_Earlist <- left_join(
+  MPI_FAO[!MPI_FAO$ISO3.code%in%MPI_FAO_income_Latest$ISO3.code,],
+  income_pov_1.9 %>%mutate(PovertyGap_year=Year),
+  by = c("ISO3.code"= "Country Code", "Earliest_Year" = "Year"))
+
+MPI_FAO_Income<-bind_rows(MPI_FAO_income_Latest,MPI_FAO_income_Earlist)%>%
+  select(-`Country Name`)
 
 ```
 
@@ -301,5 +334,8 @@ as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in%
 ```{r write}
 
 #Write out compiled data
-write.csv(MPI_FAO,file=paste0("Output/MainData_",Sys.Date(),".csv"))
+write.csv(MPI_FAO_Income,file=paste0("Output/MainData_",Sys.Date(),".csv"))
+
+# Save for other analysis
+save(MPI_FAO_Income,file="Output/MainData.RDATA")
 ```
