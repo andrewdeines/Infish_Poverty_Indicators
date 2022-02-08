@@ -48,14 +48,14 @@ Used online queries at FAO for [Capture Production](http://www.fao.org/fishery/s
 
 ```{r FAO_Fish_data}
 # FAO Capture and Aquaculture Production
-# Updated 20211102
-FAO_Capture_Culture<-read.csv("Data/capture and aquaculture production_FishStatJ_1950-2018.csv")
- # "https://tnc.box.com/s/62wp8s4y6q27efbmi834hzgj916lmvlg"
+# Updated 20220208
+FAO_Capture_Culture<-read.csv("Data/capture and aquaculture production_FishStatJ_1950-2019.csv")
+ # "https://tnc.box.com/s/xmloswen8414xcj1xf2nf4yvmm6fgaim"
  # I don't fully understand the Province of this file. It's not purely FishStat output
  # Like, who added the country code?
 
 FAO_production<-FAO_Capture_Culture%>%
-  pivot_longer(X1950:X2018)%>%  # makes it long
+  pivot_longer(X1950:X2019)%>%  # makes it long
   mutate(Year=as.numeric(gsub("X","",name)))%>%
   pivot_wider(names_from = Detailed.production.source,values_from = value)%>%
   select(Country,ISO3.code,Year,
@@ -78,13 +78,18 @@ FAO_consumption%>%
 
 # Protein Data
 FAO_protein_2013<-read.csv("Data/protien supply_FAOSTAT_1961-2013.csv")#load old data
-FAO_protein_2018<-read.csv("Data/protien supply_FAOSTAT_2014-2018.csv")#Load new data
+FAO_protein_2019<-read.csv("Data/protien supply_FAOSTAT_2010-2019.csv")#Load new data
 
 
 
 FAO_protein <-
   rbind(FAO_protein_2013[, !names(FAO_protein_2013) %in% "Year.Code"], #bind data
-        FAO_protein_2018) %>%
+        FAO_protein_2019%>%
+          filter(Year >= 2014)%>%
+          select(ï..Domain.Code,
+                  Domain,
+                  Area.Code..FAO.=Area.Code,
+                  Area:Value,-Year.Code)) %>%
   group_by(Area, Year) %>%
   mutate(FAO_TotalProtein_g.capita.day = sum(Value, na.rm = TRUE)) %>%
   pivot_wider(names_from = Item, values_from = Value) %>%
@@ -97,9 +102,22 @@ FAO_protein <-
   ungroup()%>%
   mutate(ISO3.code=countrycode(Area.Code..FAO.,origin="fao",destination="iso3c"))
 
-
+# 
+unique(FAO_protein[is.na(FAO_protein$ISO3.code),c("Country","Area.Code..FAO.")])
+# Country                       Area.Code..FAO.
+#1 Belgium-Luxembourg                         15
+#2 China, mainland                            41
+#3 Czechoslovakia                             51
+#4 Ethiopia PDR                               62
+#5 Netherlands Antilles (former)             151
+#6 Serbia and Montenegro                     186
+#7 Sudan (former)                            206
+#8 USSR                                      228
+#9 Yugoslav SFR                              248
 
 ```
+There are currently 9 known problems with the country code matching, which aren't readily resolved.
+`r unique(FAO_protein[is.na(FAO_protein$ISO3.code),c("Country","Area.Code..FAO.")])`
 
 ## MPI data 
 ```{r MPI_data}
