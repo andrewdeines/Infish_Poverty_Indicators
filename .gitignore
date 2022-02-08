@@ -28,6 +28,7 @@ vignettes/*.pdf
 .Renviron
 ~/.boxr-oauth
 Data/Obsolete Data/*
+Output/*
 
 #HTML file outputs
 *.html
