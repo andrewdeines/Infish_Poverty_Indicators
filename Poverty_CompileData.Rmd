@@ -77,47 +77,36 @@ FAO_consumption%>%
          FAO_Consumption_mt=value)
 
 # Protein Data
-FAO_protein_2013<-read.csv("Data/protien supply_FAOSTAT_1961-2013.csv")#load old data
-FAO_protein_2019<-read.csv("Data/protien supply_FAOSTAT_2010-2019.csv")#Load new data
+FAO_protein_2009<-read.csv("Data/Animal_Protein_FAOSTAT_data_2008-2009.csv")#load old data
+FAO_protein_2019<-read.csv("Data/Animal_Protein_FAOSTAT_data_2010-2019.csv")#Load new data
 
 
 
 FAO_protein <-
-  rbind(FAO_protein_2013[, !names(FAO_protein_2013) %in% "Year.Code"], #bind data
-        FAO_protein_2019%>%
-          filter(Year >= 2014)%>%
-          select(ï..Domain.Code,
-                  Domain,
-                  Area.Code..FAO.=Area.Code,
-                  Area:Value,-Year.Code)) %>%
+  rbind(FAO_protein_2009, #bind data
+        FAO_protein_2019) %>%
   group_by(Area, Year) %>%
   mutate(FAO_TotalProtein_g.capita.day = sum(Value, na.rm = TRUE)) %>%
   pivot_wider(names_from = Item, values_from = Value) %>%
   select(Country = Area,
-         Area.Code..FAO.,
+         Area.Code,
          Year,
          `FAO_TotalProtein_g.capita.day`,
          FAO_FreshwaterFishProtein_g.capita.day=`Freshwater Fish`)%>%
   filter(!is.na(FAO_FreshwaterFishProtein_g.capita.day))%>%
   ungroup()%>%
-  mutate(ISO3.code=countrycode(Area.Code..FAO.,origin="fao",destination="iso3c"))
-
+  mutate(ISO3.code=countrycode(Area.Code,origin="fao",destination="iso3c"))
+#i Some values were not matched unambiguously: 41, 151, 206
 # 
-unique(FAO_protein[is.na(FAO_protein$ISO3.code),c("Country","Area.Code..FAO.")])
-# Country                       Area.Code..FAO.
-#1 Belgium-Luxembourg                         15
-#2 China, mainland                            41
-#3 Czechoslovakia                             51
-#4 Ethiopia PDR                               62
-#5 Netherlands Antilles (former)             151
-#6 Serbia and Montenegro                     186
-#7 Sudan (former)                            206
-#8 USSR                                      228
-#9 Yugoslav SFR                              248
+unique(FAO_protein[is.na(FAO_protein$ISO3.code),c("Country","Area.Code")])
+# Country                       Area.Code
+#1 China, mainland                      41
+#2 Netherlands Antilles (former)       151
+#3 Sudan (former)                      206
 
 ```
-There are currently 9 known problems with the country code matching, which aren't readily resolved.
-`r unique(FAO_protein[is.na(FAO_protein$ISO3.code),c("Country","Area.Code..FAO.")])`
+There are currently 3 known problems with the country code matching, which aren't readily resolved.
+
 
 ## MPI data 
 ```{r MPI_data}
@@ -322,7 +311,7 @@ MPI_FAO_protein_Earlist <- left_join(
 
 #Combine the latest and Earliest
 MPI_FAO<-bind_rows(MPI_FAO_protein_Latest,MPI_FAO_protein_Earlist)%>%
-  select(-c(Country.y,Area.Code..FAO.),Country=Country.x)
+  select(-c(Country.y,Area.Code),Country=Country.x)
 
 #Check that any 3+year data sets (PNG) are included
 as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in% 
