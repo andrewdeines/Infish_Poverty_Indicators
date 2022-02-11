@@ -42,9 +42,12 @@ plot01 <-
   expTheme
 
 ```
+
+
 ### Contribution of freshwater of freshwater fish in people’s diet in each region at different levels of poverty (MPI) and the trend/relationship between them.  
 
-Animal protein consumed (g/person/day; y axis) ~ Multidimensional poverty (0-1, x axis) and size of points is the percentage freshwater fish makes up of the total and disaggregated by region (MPI table definition) and a trend line showing the regression between protein consumed and multidimensional poverty 
+Freshwater fish as a % of animal protein (%; y axis) ~ Multidimensional poverty (0-1, x axis) and size of points is the percentage freshwater fish makes up of the total and disaggregated by region (MPI table definition) and a trend line showing the regression between fish as a % of animal proteinand multidimensional poverty
+
 
 Data sources; Animal protein consumed is from ABC; MPI is from MPI Table 1 
 ```{r }
@@ -53,15 +56,15 @@ plot02 <-
     data = MPI_FAO_Income %>%
       mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
                FAO_TotalProtein_g.capita.day),
-    aes(y = FAO_TotalProtein_g.capita.day, x = MPI, size = Protein_fwf)
+    aes(y =Protein_fwf , x = MPI, size = FAO_TotalProtein_g.capita.day) #
   ) +
   expAnnotate(scpt="`Poverty_Analysis.Rmd`",
                 figID="plot02")+
   geom_point()+
-  geom_smooth(method="lm")+
+  geom_smooth(method="lm", show.legend = FALSE)+
   facet_wrap(~`World region`,scale="free")+
-  ylab("Animal protein consumed (g/person/day)")+
-  scale_size("Freshwater fish % of Protein")+
+  ylab("Freshwater fish % of Protein")+ #
+  scale_size("Animal protein consumed (g/person/day)")+
   expTheme
 ```
  
@@ -78,18 +81,18 @@ plot03 <-
     data = MPI_FAO_Income %>%
       mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
                FAO_TotalProtein_g.capita.day),
-    aes(y = FAO_TotalProtein_g.capita.day, 
+    aes(size = FAO_TotalProtein_g.capita.day, 
         x = `MPI_Nutrition_%Population`, 
-        size = Protein_fwf)
+        y = Protein_fwf)
   ) +
   expAnnotate(scpt="`Poverty_Analysis.Rmd`",
                 figID="plot03")+
   geom_point()+
-  geom_smooth(method="lm")+
+  geom_smooth(method="lm", show.legend = FALSE)+
   facet_wrap(~`World region`,scale="free")+
-  ylab("Animal protein consumed (g/person/day)")+
+  ylab("Freshwater fish % of Protein")+
   xlab("MPI Nutrition Deprivation (% Population, Uncensored Headcounts)")+
-  scale_size("Freshwater fish % of Protein")+
+  scale_size("Animal protein consumed (g/person/day)")+
   expTheme
 
 # By CONTRIBUTION
@@ -98,18 +101,18 @@ plot04 <-
     data = MPI_FAO_Income %>%
       mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
                FAO_TotalProtein_g.capita.day),
-    aes(y = FAO_TotalProtein_g.capita.day, 
+    aes(size = FAO_TotalProtein_g.capita.day, 
         x = `MPI_Nutrition_%Contribution`, 
-        size = Protein_fwf)
+        y = Protein_fwf)
   ) +
   expAnnotate(scpt="`Poverty_Analysis.Rmd`",
                 figID="plot04")+
   geom_point()+
-  geom_smooth(method="lm")+
+  geom_smooth(method="lm", show.legend = FALSE)+
   facet_wrap(~`World region`,scale="free")+
-  ylab("Animal protein consumed (g/person/day)")+
+  ylab("Freshwater fish % of Protein")+
   xlab("MPI Nutrition Deprivation (% Contribution)")+
-  scale_size("Freshwater fish % of Protein")+
+  scale_size("Animal protein consumed (g/person/day)")+
   expTheme
 ```
  
@@ -123,18 +126,18 @@ plot05 <-
     data = MPI_FAO_Income %>%
       mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
                FAO_TotalProtein_g.capita.day),
-    aes(y = FAO_TotalProtein_g.capita.day, 
+    aes(size = FAO_TotalProtein_g.capita.day, 
         x = WB_PovertyGap_1.90, 
-        size = Protein_fwf)
+        y = Protein_fwf)
   ) +
   expAnnotate(scpt="`Poverty_Analysis.Rmd`",
                 figID="plot05")+
   geom_point()+
-  geom_smooth(method="lm")+
+  geom_smooth(method="lm", show.legend = FALSE)+
   facet_wrap(~`World region`,scale="free")+
-  ylab("Animal protein consumed (g/person/day)")+
+  ylab("Freshwater fish % of Protein")+
   xlab("Poverty gap at $1.90 a day (%)")+
-  scale_size("Freshwater fish % of Protein")+
+  scale_size("Animal protein consumed (g/person/day)")+
   expTheme
 ```
  
@@ -157,335 +160,3 @@ plot06 <-"TBD"
 
 
 
-
-
-# Old Stuff
-## Nutrition Analysis
-### Animal Protein~MPI
-```{r AnimalProtein_by_MPI}
-# Need to Join the FAO_protein data and MPI_raw data by Country and year
-head(FAO_protein)
-head(MPI_raw)
-head(MPI_Deprivations)
-head(MPI_headcounts)
-
-
-# Unify Country Names using countrycode package
-## Convert FAO to ISO as in the MPI data
-## Check for matches, deal with manual missing matches
-FAO_protein_1<-FAO_protein%>%
-  filter(Year>=min(unlist(str_split(MPI_raw$`MPI data source_Year`,"-"))))%>% 
-    ##filter by year to matches MPI data, and resolves some country dissolutions
-  mutate(iso_country3=countrycode(Area.Code..FAO., origin = "fao", destination = "iso3c",
-                      custom_match=  c(
-                        "41"="CHN", # China, mainland
-                        "151"="NA",  # Netherlands Antilles (former) dissolved by 2010 in FAO data
-                        "206"="NA") # Sudan (former). South Sudan MPI data is 2010, Sudan is 2014          
-  ))%>%
-  group_by(iso_country3,Year)%>%
-  summarise(Total_animal_protein=sum(Value,na.rm=TRUE),
-            Total_FWF_protein=sum(Value[Item%in%"Freshwater Fish"],na.rm=TRUE),
-            FWF_precent_Total=Total_FWF_protein/Total_animal_protein)
-  ### Note, The Netherlands Antilles dissolved into several states, none of
-  ### which appear to be in the MPI Data.  For Sudan (former), the 2010 FAO
-  ### doesn't seem to have South Sudan.
-
-# For each MPI country, grab the FAO data for the survey data year
-
-
-MPI_raw_1<-MPI_raw%>%
-  group_by( Country)%>%
-  mutate(mpi_year_max= min(as.numeric(unlist(str_split(`MPI data source_Year`,"-")))))
-  ## ("mpi_year_max") should be used because one would not expect a later
-  ## poverty metric (say 2017) to have influenced an earlier fishing levels (say
-  ## 2014), but rather fishing level in 2017 may have a signal of poverty
-  ## metrics from previous years. "mpi_year_min" would be appropriate if the
-  ## hypothesis was that fishing influenced poverty levels.
-
-
-# Join the databases by Country and Year
-Protein_MPI<-MPI_raw_1%>%
-  left_join(MPI_Deprivations%>%
-              select(`ISO country code`,
-                     "Depriv_Health Nutrition"="Health Nutrition",
-                     "Depriv_Living Standards Drinking water"="Living Standards Drinking water"))%>%
-  left_join(MPI_headcounts%>%
-              select(`ISO country code`,
-                     "headcounts_Health Nutrition"="Health Nutrition",
-                     "headcounts_Living Standards Drinking water"="Living Standards Drinking water"))%>%
-  left_join(FAO_protein_1,
-            by=c("ISO country code"="iso_country3","mpi_year_max"="Year") )
-
-
-#plot
-Protein_MPI_plot_01<-
-  ggplot(data=Protein_MPI,
-         aes(x=`Multidimensional poverty_Multidimensional Poverty Index`,
-             y=`Total_animal_protein`))+
-    expAnnotate(scpt=paste("'Poverty_FAOdata.Rmd'",sep=" "),
-                figID="Protein_MPI_plot_01")+
-  geom_point(aes(size=FWF_precent_Total*100,
-                 color=`World region`))+
-  #geom_text(aes(label=Country))+
-  ylab("Total animal protein in diet (g/capita/day)")+
-  xlab("Multidimensional Poverty Index (MPI)")+
-  scale_size_continuous("FWF % Total")+
-  #scale_y_log10()+
-  #scale_x_log10()+
-  expTheme
-  
-
-FWF_MPI_plot_02<-ggplot(data=Protein_MPI,
-         aes(x=`Multidimensional poverty_Multidimensional Poverty Index`,
-             y=FWF_precent_Total*100))+
-    expAnnotate(scpt=paste("'Poverty_FAOdata.Rmd'",sep=" "),
-                figID="FWF_MPI_plot_02")+
-  geom_point(aes(color=`World region`))+
-  #geom_text(aes(label=Country))+
-  ylab("FWF % total protein in diet (g/capita/day)")+
-  xlab("Multidimensional Poverty Index (MPI)")+
-  #scale_y_log10()+
-  #scale_x_log10()+
-  expTheme+facet_wrap(~`World region`)+
-  geom_text(aes(label=Country))
-
-
-Compare with traditional income poverty metric. 
-
-```
-
-
-## uncategorized analyses
-
-```{r plot}
-#plot MPI~total production
-FAO_10yr_prod<-FAO_MPI%>%filter(Fish_year%in%2009:2018)%>% #for ten-year average
- group_by(Country)%>%
- summarise(Prod_10yrAvg=mean(value_Total_t,na.rm = TRUE),
-           frac_Capture_Avg=mean(frac_Capture,na.rm = TRUE),
-           MPI=unique(MPI))
-
-AMD01<-ggplot(data=FAO_MPI%>%filter(Fish_year==MPI_year),
-       aes(x=value_Total_t,y=MPI,color=frac_Capture))+
-  geom_point()+
-  scale_y_log10()+
-  scale_x_log10()+
-  xlab("Total inland production in recent MPI survey year(capture+aquaculture t)")+
-  scale_color_continuous("Fraction Capture")+
-  ggtitle("DRAFT- Country level MPI by total inland fisheries production")+
-  ggrepel::geom_text_repel(data=FAO_MPI%>%
-                             filter(Fish_year==MPI_year,
-                                    frac_Capture>.95),
-            aes(label=Country),size=2)+
-  theme(legend.position="bottom")
-print(AMD01)
-ggsave(plot=AMD01,filename="Output/Figures/AMD01_MPI by total inland fisheries.png",
-       height=5,width=6,units = "in")
-
-
-#plot MPI~consumption
-FAO_10yr_cons<-FAO_MPI%>%
-  group_by(Country)%>%
-  summarise(Cons_10yrAvg=mean(value_Consumption,na.rm = TRUE),
-            MPI=unique(MPI))
-
-AMD02<-ggplot(data=FAO_MPI%>%filter(Fish_year==MPI_year),
-       aes(x=value_Consumption,y=MPI))+
-  geom_point()+
-  scale_y_log10()+
-  scale_x_log10()+
-  xlab("Inland fisheries in recent MPI survey year")+
-  ggtitle("DRAFT- Country level MPI by total inland fisheries consumption")
-print(AMD02)
-
-AMD03<-ggplot(data=FAO_MPI%>%filter(Fish_year==MPI_year), 
-              aes(x=value_Total_t,y=value_Consumption,
-                  color=frac_Capture,
-                  size=MPI))+
-  geom_point()+
-  ylab("Consumption in recent MPI survey year")+
-  xlab("Total production in recent MPI survey year")+
-  scale_color_continuous("Fraction Capture")+
-  scale_size_continuous("MPI")+
-  scale_x_log10()+
-  scale_y_log10()+
-  ggtitle("DRAFT- Country consumption by total inland fisheries production")+
-  ggrepel::geom_text_repel(data=FAO_MPI%>%
-                             filter(Fish_year==MPI_year,
-                                    value_Total_t<1e3),
-            aes(label=Country),size=3)
-print(AMD03)
-  ##Production and consumption are rather linear, except at the lowest levels of
-  ##production where consumption is abnormally high, though few data points.
-ggsave(plot=AMD03,filename="Output/Figures/AMD03_inland fisheries production and consumption.png",
-       height=5,width=7,units = "in")
-
-```
-
-An interesting aspect of AMD01, is that there appears to be a large separation in MPI based on the fraction of the production that is capture, where the higher fraction of capture appears to be correlated with higher MPI. 
-
-```{r MPI_FracCap}
-
-AMD04<-ggplot(data=FAO_10yr_prod,
-       aes(color=Prod_10yrAvg,y=MPI,x=frac_Capture_Avg))+
-  geom_point()+
-  scale_y_log10()+
-  scale_x_log10()+
-  xlab("Fraction of total production that is Capture fishery")+
-  scale_color_continuous("10 year average total production")+
-  ggtitle("DRAFT- Country level MPI by total inland fisheries production")
-print(AMD04)
-
-
-#capture or Aquaculture by MPI
-FAO_MPI_long<-FAO_MPI%>%
-                filter(Fish_year==MPI_year)%>%
-                pivot_longer(cols=c(value_Capture_t, value_Aquaculture_t),
-                             names_to="Harvest mode",values_to="Harvest tons")%>%
-                mutate(`Per_cap Harvest KG`=`Harvest tons`*1000/Population)
-
-AMD05<-ggplot(data=FAO_MPI_long,
-              aes(x=MPI,y=`Harvest tons`,color=`Harvest mode`))+
-  geom_point()+
-  scale_y_log10()+
-  scale_x_log10()+
-  xlab("MPI")+
-  ylab("Production in recent MPI survey year")+
-  geom_smooth(method="lm")+
-  ggtitle("DRAFT- Country harvest by MPI and harvest mode")
-print(AMD05)
-ggsave(plot=AMD05,filename="Output/Figures/AMD05_Country harvest by MPI and harvest mode.png",
-       height=5,width=6,units = "in")
-
-
-FAO_lm_Capture<-lm(data=FAO_MPI_long,log(`Harvest tons`+1)~log(MPI),
-                   subset=FAO_MPI_long$`Harvest mode`%in%"value_Capture_t")
-summary(FAO_lm_Capture)
-plot(FAO_lm_Capture)
-
-FAO_lm_Aquaculture<-lm(data=FAO_MPI_long,log(`Harvest tons`+1)~log(MPI),
-                   subset=!FAO_MPI_long$`Harvest mode`%in%"value_Capture_t")
-summary(FAO_lm_Aquaculture)
-plot(FAO_lm_Aquaculture)
-
-FAO_lm_total<-lm(data=FAO_MPI_long,log(`Harvest tons`+1)~log(MPI)*`Harvest mode`,
-                   subset=FAO_MPI_long$`Harvest tons`>0)
-summary(FAO_lm_total)
-par(mfrow=c(2,2))
-plot(FAO_lm_total)
-
-```
-
-## Per Captia 
-MPI at a per capita production
-```{r per_capita}
-#basically AMD05 production by MPI, but percaptia production
-AMD06<-ggplot(data=FAO_MPI_long,
-              aes(x=MPI,y=`Per_cap Harvest KG`,color=`Harvest mode`))+
-  geom_point()+
-  scale_y_log10()+
-  scale_x_log10()+
-  xlab("MPI")+
-  ylab("KG per capita Production in recent MPI survey year")+
-  geom_smooth(method="lm")+
-  ggtitle("DRAFT- KG Per Capita Country harvest by MPI and harvest mode")
-print(AMD06)
-ggsave(plot=AMD06,filename="Output/Figures/AMD06_Country per-capita harvest by MPI and harvest mode.png",
-       height=5,width=6,units = "in")
-
-FAO_lm_Capture_percap<-lm(data=FAO_MPI_long,log(`Per_cap Harvest KG`)~log(MPI)*`Harvest mode`,
-                          subset=FAO_MPI_long$`Per_cap Harvest KG`>0)
-summary(FAO_lm_Capture_percap)
-anova(FAO_lm_Capture_percap)
-par(mfrow=c(2,2))
-plot(FAO_lm_Capture_percap)
-#Huge fan of the residuals.
-
-
-```
-
-
-## Nutrition 
-Using "table 7" which isn't harmonized over time, but I've year matched when appropriate. 
-```{r nutrition}
-MPI_nutrition_0<- read_excel("Data/Table-7-All-MPI-Data-Since-2010-2020.xlsx",
-                           range="A5:T409",col_names=FALSE)
-
-#readable columns names bc the original source file is format bonkers. 
-MPI_nutrition_names<-apply(MPI_nurtition_0[1:5,],2,function(i) paste(na.omit(i),collapse="_"))
-
-#Clean up the nutrition data. 
-MPI_nutrition<-MPI_nutrition_0%>%
-  #add field namesand select relevant fields 
-  slice(-c(1:5))%>%
-  rename_at(names(MPI_nutrition_0), function(x)MPI_nutrition_names )%>%
-  select(`Year MPI published`,
-    year_of_survey=Year, Country, 
-         Nutrition_percent=`Percentage of people who are poor and deprived in…_Health_Nutrition_% Population`)%>%
-  #select the most recent survey years, which often span two years
-  separate(year_of_survey,into=c("Year1","Year2"),fill="right")%>%
-  pivot_longer(c(Year1, Year2), names_to = "name",values_to="Year_of_survey")%>%
-  filter(!is.na(Nutrition_percent),!is.na(`Year_of_survey`))%>%
-  select(-name)%>%
-  mutate(Year_of_survey=as.numeric(Year_of_survey),
-         Nutrition_percent =as.numeric(Nutrition_percent ),
-         `Year MPI published`=as.numeric(`Year MPI published`))%>%
-  group_by(Country)%>%
-  filter(Year_of_survey==max(Year_of_survey),
-         `Year MPI published`==max(`Year MPI published`))%>%
-    ##assume use the most recent year of survey as reported in the most recent publication
-  select(-`Year MPI published`)%>%
-  #Unify country names to FAO  
-  left_join(MPIlookup)%>%
-  mutate(Land.Area= ifelse(is.na(Land.Area), Country, Land.Area))%>%
-  #join FAO_MPI data to nutrition data. 
-  right_join(FAO_MPI_long,by=c("Country","Year_of_survey"="MPI_year"))
-  
-AMD07<-ggplot(data=MPI_nutrition,
-              aes(x=MPI,y=`Per_cap Harvest KG`,
-                  color=`Harvest mode`,
-                  size=Nutrition_percent))+
-  geom_point()+
-  scale_y_log10()+
-  scale_x_log10()+
-  xlab("MPI")+
-  ylab("KG per capita Production in recent MPI survey year")+
-  geom_smooth(method="lm")+
-  ggtitle("DRAFT- KG Per Capita Country harvest by nutrition % and harvest mode ")
-print(AMD07)
-
-
-AMD08<-ggplot(data=MPI_nutrition,
-              aes(x=Nutrition_percent,y=`Per_cap Harvest KG`,color=`Harvest mode`))+
-  geom_point()+
-  scale_y_log10()+
-  scale_x_log10()+
-  xlab("% population nutrition deprived")+
-  ylab("KG per capita Production in recent MPI survey year")+
-  geom_smooth(method="lm")+
-  ggtitle("DRAFT- KG Per Capita Country harvest by nutrition % and harvest mode")
-print(AMD08)
-ggsave(plot=AMD08,filename="Output/Figures/AMD08_Country per-capita harvest by nutrition and harvest mode.png",
-       height=5,width=6,units = "in")
-
-FAO_lm_percap_nut<-lm(data=MPI_nutrition,log(`Per_cap Harvest KG`)~log(Nutrition_percent)*`Harvest mode`,
-                          subset=MPI_nutrition$`Per_cap Harvest KG`>0)
-summary(FAO_lm_percap_nut)
-anova(FAO_lm_percap_nut)
-par(mfrow=c(2,2))
-plot(FAO_lm_percap_nut)
-#Huge fan of the residuals.
-
-
-ggplot(data=MPI_nutrition,
-              aes(x=Nutrition_percent,y=MPI))+
-  geom_point()+scale_x_log10()+scale_y_log10()
-
-summary(lm(log(MPI)~log(Nutrition_percent),data=MPI_nutrition))
-
-#Note that % population of nutrition deprived explains like 95% of MPI
-#even though it's weight is only 1/6. 
-
-```
-
-plot diet data - "PercentProteinFWFish - FAOSTAT.xlsx" 
