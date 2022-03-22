@@ -77,8 +77,8 @@ FAO_consumption%>%
          FAO_Consumption_mt=value)
 
 # Protein Data
-FAO_protein_2009<-read.csv("Data/Animal_Protein_FAOSTAT_data_2008-2009.csv")#load old data
-FAO_protein_2019<-read.csv("Data/Animal_Protein_FAOSTAT_data_2010-2019.csv")#Load new data
+FAO_protein_2009<-read_csv("Data/Animal_Protein_FAOSTAT_data_2008-2009.csv")#load old data
+FAO_protein_2019<-read_csv("Data/Animal_Protein_FAOSTAT_data_2010-2019.csv")#Load new data
 
 
 
@@ -211,12 +211,16 @@ MPI_Deprivations<-read_excel("Data/Table-1-National-Results-MPI-2021.xlsx",
                 range="A10:V118",col_names = MPI_header_1.3)
 
 
+MPI_header_1.4<-
+
+MPI_PovertyGap<-
+
 #Compile MPI data####
 # from selected sheets We are only after the Nutrition component (for now)
 MPI_raw # Turns out this isn't really needed, since the MPI is also in the other tables
 MPI_headcounts
 MPI_Deprivations
-
+MPI_PovertyGap
 
 MPI <- full_join(
   MPI_headcounts %>%
@@ -248,23 +252,6 @@ qplot(data=MPI,y=`MPI_Nutrition_%Population`,x=`MPI_Nutrition_%Contribution`)
 ##The nutrition "_%Population", "_%Contribution" are pretty unrealated. 
 
 ```
-
-
-## Income Poverty
-```{r Income}
-#https://tnc.box.com/s/jjxelezdqb2itr58dzjuamglrzpi1rbr
-income_pov<-read_excel("Data/API_11_DS2_en_excel_v2_3159551.xls",
-                       sheet="Data",skip=3)
-
-income_pov_1.9<-income_pov%>%
-  filter(`Indicator Code`%in%"SI.POV.GAPS")%>%
-  pivot_longer(cols=`1960`:`2020`,names_to = "Year",values_to = "WB_PovertyGap_1.90")%>%
-  mutate(Year=as.numeric(Year))%>%
-  filter(!is.na(WB_PovertyGap_1.90))%>%
-  select(-`Indicator Name`,-`Indicator Code` )
-
-```
-
 
 ## Compile Data 
 ```{r compile}
@@ -317,22 +304,6 @@ MPI_FAO<-bind_rows(MPI_FAO_protein_Latest,MPI_FAO_protein_Earlist)%>%
 as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in% 
                       MPI$ISO3.code[MPI$Latest_Year-MPI$Earliest_Year>1],])
 # All Set 
-
-### Income Poverty $1.90 per day
-
-MPI_FAO_income_Latest <- inner_join(
-  MPI_FAO,
-  income_pov_1.9 %>% mutate(PovertyGap_year = Year),
-  by = c("ISO3.code" = "Country Code", "Latest_Year" = "Year")
-)
-
-MPI_FAO_income_Earlist <- left_join(
-  MPI_FAO[!MPI_FAO$ISO3.code%in%MPI_FAO_income_Latest$ISO3.code,],
-  income_pov_1.9 %>%mutate(PovertyGap_year=Year),
-  by = c("ISO3.code"= "Country Code", "Earliest_Year" = "Year"))
-
-MPI_FAO_Income<-bind_rows(MPI_FAO_income_Latest,MPI_FAO_income_Earlist)%>%
-  select(-`Country Name`)
 
 ```
 
