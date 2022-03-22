@@ -211,9 +211,34 @@ MPI_Deprivations<-read_excel("Data/Table-1-National-Results-MPI-2021.xlsx",
                 range="A10:V118",col_names = MPI_header_1.3)
 
 
-MPI_header_1.4<-
+# Tab "1.4 MPI Results & Compl.[Compiled] Data" ####
+MPI_header_1.4<-c(
+"ISO country numeric code",
+"ISO country code",
+"Country",
+"World region",
+"MPI data source_Survey",
+"MPI data source_Year",
+"Multidimensional poverty_Multidimensional Poverty Index",#(MPI = H*A)_Range 0 to 1
+"Population in multidimensional poverty", #H
+"Intensity of deprivation among the poor",# (A)
+"Income Poverty_1.90_Value",
+"Income Poverty_1.90_Year",
+"Income Poverty_3.10_Value",
+"Income Poverty_3.10_Year",
+"Income Poverty_NatPovertyLine_Value",
+"Income Poverty_NatPovertyLine_Year",
+"GNI per capita",
+"Gini Index_Value",
+"Gini Index_Year",
+"HDI_Value",
+"HDI_Category",
+"Income category"
+)
 
-MPI_PovertyGap<-
+MPI_PovertyGap<-read_excel("Data/Table-1-National-Results-MPI-2021.xlsx",
+                sheet="1.4 MPI Results & Compl. Data",
+                range="A10:U118",col_names = MPI_header_1.4)
 
 #Compile MPI data####
 # from selected sheets We are only after the Nutrition component (for now)
@@ -223,17 +248,23 @@ MPI_Deprivations
 MPI_PovertyGap
 
 MPI <- full_join(
-  MPI_headcounts %>%
-    select(Country, ISO3.code = `ISO country code`,`World region`, 
+    MPI_headcounts %>%
+      select(Country, ISO3.code = `ISO country code`,`World region`, 
+             `MPI data source_Year`,
+             MPI="Multidimensional poverty_Multidimensional Poverty Index",
+             MPI_Nutrition=`Health Nutrition`),
+    MPI_Deprivations%>%
+      select(Country, ISO3.code = `ISO country code`, 
+             `MPI data source_Year`,
+             MPI_Nutrition=`Health Nutrition`),
+    by=c("Country","ISO3.code","MPI data source_Year"),
+    suffix = c("_%Population", "_%Contribution"))%>%
+  full_join(
+    MPI_PovertyGap%>%
+           select(Country, ISO3.code=`ISO country code`, 
            `MPI data source_Year`,
-           MPI="Multidimensional poverty_Multidimensional Poverty Index",
-           MPI_Nutrition=`Health Nutrition`),
-  MPI_Deprivations%>%
-    select(Country, ISO3.code = `ISO country code`, 
-           `MPI data source_Year`,
-           MPI_Nutrition=`Health Nutrition`),
-  by=c("Country","ISO3.code","MPI data source_Year"),
-  suffix = c("_%Population", "_%Contribution"))%>%
+           `Income Poverty_1.90_Value`,`Income Poverty_1.90_Year`),
+    by=c("Country","ISO3.code","MPI data source_Year"))%>%
   separate(`MPI data source_Year`,into=c(NA,"Latest_Year"),
            remove=FALSE, fill="left",convert=TRUE)%>%
   separate(`MPI data source_Year`,into=c("Earliest_Year",NA),
@@ -280,31 +311,6 @@ MPI_FAO_Production [MPI_FAO_Production$ISO3.code %in%
                       MPI$ISO3.code[MPI$Latest_Year-MPI$Earliest_Year>1],]
 ##All Set.
 
-
-# FAO Nutrition DATA ####
-# There's no point in dealing with "old" data not in MPI ~ 2009
-##Not all the
-
-#All the matches to the lastest Year
-MPI_FAO_protein_Latest <- inner_join(MPI_FAO_Production,
-                                        FAO_protein%>%mutate(FAO_protein_year=Year),
-                                        by = c("ISO3.code", "Latest_Year" = "Year"))
-
-#All the matches to the Earlist Year Not in Latest year
-MPI_FAO_protein_Earlist <- left_join(
-  MPI_FAO_Production[!MPI_FAO_Production$ISO3.code%in%MPI_FAO_protein_Latest$ISO3.code,],
-  FAO_protein%>%mutate(FAO_protein_year=Year),
-  by = c("ISO3.code", "Earliest_Year" = "Year"))
-
-#Combine the latest and Earliest
-MPI_FAO<-bind_rows(MPI_FAO_protein_Latest,MPI_FAO_protein_Earlist)%>%
-  select(-c(Country.y,Area.Code),Country=Country.x)
-
-#Check that any 3+year data sets (PNG) are included
-as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in% 
-                      MPI$ISO3.code[MPI$Latest_Year-MPI$Earliest_Year>1],])
-# All Set 
-
 ```
 
 
@@ -312,8 +318,11 @@ as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in%
 ```{r write}
 
 #Write out compiled data
-write.csv(MPI_FAO_Income,file=paste0("Output/MainData_",Sys.Date(),".csv"))
+write.csv(MPI_FAO_Production,file=paste0("Output/MainData_",Sys.Date(),".csv"))
+
+# This values get's added to the Box account, 
+# Then Sui is manually adding protien data
 
 # Save for other analysis
-save(MPI_FAO_Income,file="Output/MainData.RDATA")
+#save(MPI_FAO_Income,file="Output/MainData.RDATA")
 ```
