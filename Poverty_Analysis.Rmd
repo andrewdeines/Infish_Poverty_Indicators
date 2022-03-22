@@ -66,6 +66,26 @@ plot02 <-
   ylab("Freshwater fish % of Protein")+ #
   scale_size("Animal protein consumed (g/person/day)")+
   expTheme
+
+
+plot07<-
+  ggplot(
+    data = MPI_FAO_Income %>%
+      mutate(Protein_fwf = FAO_FreshwaterFishProtein_g.capita.day /
+               FAO_TotalProtein_g.capita.day)%>%
+      filter(`World region`%in%"Sub-Saharan Africa"),
+    aes(y =Protein_fwf , x = MPI,color=FAO_TotalProtein_g.capita.day) #
+  ) +
+  expAnnotate(scpt="`Poverty_Analysis.Rmd`",
+                figID="plot07")+
+  geom_point()+
+  ggrepel::geom_text_repel(aes(label=Country))+
+  ylab("Freshwater fish % of Protein")+ #
+  expTheme
+
+
+
+
 ```
  
 
