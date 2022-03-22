@@ -85,20 +85,19 @@ FAO_protein_2019<-read_csv("Data/Animal_Protein_FAOSTAT_data_2010-2019.csv")#Loa
 FAO_protein <-
   rbind(FAO_protein_2009, #bind data
         FAO_protein_2019) %>%
-  group_by(Area, Year) %>%
+  select(Area,`Area Code`,Year,Item,Value)%>%
+  group_by(Area, `Area Code`,Year) %>%
   mutate(FAO_TotalProtein_g.capita.day = sum(Value, na.rm = TRUE)) %>%
   pivot_wider(names_from = Item, values_from = Value) %>%
   select(Country = Area,
-         Area.Code,
+         `Area Code`,
          Year,
-         `FAO_TotalProtein_g.capita.day`,
-         FAO_FreshwaterFishProtein_g.capita.day=`Freshwater Fish`)%>%
-  filter(!is.na(FAO_FreshwaterFishProtein_g.capita.day))%>%
+         `FAO_TotalProtein_g.capita.day`:`Meat, Aquatic Mammals`)%>%
   ungroup()%>%
-  mutate(ISO3.code=countrycode(Area.Code,origin="fao",destination="iso3c"))
+  mutate(ISO3.code=countrycode(`Area Code`,origin="fao",destination="iso3c"))
 #i Some values were not matched unambiguously: 41, 151, 206
 # 
-unique(FAO_protein[is.na(FAO_protein$ISO3.code),c("Country","Area.Code")])
+unique(FAO_protein[is.na(FAO_protein$ISO3.code),c("Country","Area Code")])
 # Country                       Area.Code
 #1 China, mainland                      41
 #2 Netherlands Antilles (former)       151
@@ -310,6 +309,32 @@ MPI_FAO_Production<-bind_rows(MPI_FAO_Production_Latest,MPI_FAO_Production_Earli
 MPI_FAO_Production [MPI_FAO_Production$ISO3.code %in% 
                       MPI$ISO3.code[MPI$Latest_Year-MPI$Earliest_Year>1],]
 ##All Set.
+
+
+# FAO Nutrition DATA ####
+# There's no point in dealing with "old" data not in MPI ~ 2009
+##Not all the
+
+#All the matches to the lastest Year
+MPI_FAO_protein_Latest <- inner_join(MPI_FAO_Production,
+                                        FAO_protein%>%mutate(FAO_protein_year=Year),
+                                        by = c("ISO3.code", "Latest_Year" = "Year"))
+
+#All the matches to the Earlist Year Not in Latest year
+MPI_FAO_protein_Earlist <- left_join(
+  MPI_FAO_Production[!MPI_FAO_Production$ISO3.code%in%MPI_FAO_protein_Latest$ISO3.code,],
+  FAO_protein%>%mutate(FAO_protein_year=Year),
+  by = c("ISO3.code", "Earliest_Year" = "Year"))
+
+#Combine the latest and Earliest
+MPI_FAO<-bind_rows(MPI_FAO_protein_Latest,MPI_FAO_protein_Earlist)%>%
+  select(-c(Country.y,`Area Code`),Country=Country.x)
+
+#Check that any 3+year data sets (PNG) are included
+as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in% 
+                      MPI$ISO3.code[MPI$Latest_Year-MPI$Earliest_Year>1],])
+# All Set 
+
 
 ```
 
