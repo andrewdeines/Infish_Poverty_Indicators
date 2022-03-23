@@ -343,11 +343,11 @@ as.data.frame(MPI_FAO[MPI_FAO$ISO3.code %in%
 ```{r write}
 
 #Write out compiled data
-write.csv(MPI_FAO_Production,file=paste0("Output/MainData_",Sys.Date(),".csv"))
+write.csv(MPI_FAO,file=paste0("Output/MainData_",Sys.Date(),".csv"))
 
 # This values get's added to the Box account, 
 # Then Sui is manually adding protien data
 
 # Save for other analysis
-#save(MPI_FAO_Income,file="Output/MainData.RDATA")
+save(MPI_FAO,file="Output/MainData.RDATA")
 ```
